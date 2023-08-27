@@ -48,18 +48,14 @@ func main() {
 	bold := "\033[1m"
 	reset := "\033[0m"
 
-	// fmt.Printf("%sTexto em vermelho e negrito%s\n", red+bold, reset)
-
-	// coloredText := fmt.Sprintf("%sTexto vermelho%s e %sTexto verde%s", red+bold, reset, green, reset)
-	// fmt.Println(coloredText)
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.Contains(line, expression) {
 			concat := ""
-			n := 0
+			occurrenceIndex := 0
 			positions := findAllOccurrences(line, expression)
 
-			position := positions[n]
+			position := positions[occurrenceIndex]
 
 			for index, value := range line {
 				if position == index {
@@ -69,9 +65,9 @@ func main() {
 
 				if index >= position + expressionLength - 1 {
 					concat += reset
-					if n < len(positions) - 1 {
-						n++
-						position = positions[n]
+					if occurrenceIndex < len(positions) - 1 {
+						occurrenceIndex++
+						position = positions[occurrenceIndex]
 					}
 				}
 			}
