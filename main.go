@@ -3,8 +3,16 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 	"strings"
+)
+
+const (
+	Red = "\033[31m"
+	Bold = "\033[1m"
+	Reset = "\033[0m"
 )
 
 func findAllOccurrences(mainString, substring string) []int {
@@ -23,6 +31,88 @@ func findAllOccurrences(mainString, substring string) []int {
 	return positions
 }
 
+func traverse(path, expression string) {
+	dir, err := os.Open(path)
+	if err != nil {
+		fmt.Println("Error opening directory:", err)
+		return
+	}
+	defer dir.Close()
+
+	fileInfos, err := dir.Readdir(-1)
+	if err != nil {
+		fmt.Println("Error reading directory contents:", err)
+		return
+	}
+
+	for _, fileInfo := range fileInfos {
+		if fileInfo.IsDir() {
+			absolutePath, err := filepath.Abs(path+"/"+fileInfo.Name())
+			if err != nil {
+				fmt.Println("Error reading directory contents:", err)
+				return
+			}
+
+			traverse(absolutePath, expression)
+		} else {
+			absolutePath, err := filepath.Abs(path+"/"+fileInfo.Name())
+			if err != nil {
+				fmt.Println("Error reading directory contents:", err)
+				return
+			}
+			file, err := os.Open(absolutePath)
+			readFileAndHighlight(file, expression)
+
+			if err != nil {
+				fmt.Println("Error opening file:", err)
+				return
+			}
+			fmt.Println(file.Name())
+			defer file.Close()
+		}
+	}
+}
+
+func highlightExpression(line, expression string) {
+	concat := ""
+	expressionLength := len(expression)
+	occurrenceIndex := 0
+	positions := findAllOccurrences(line, expression)
+
+	position := positions[occurrenceIndex]
+
+	for index, value := range line {
+		if position == index {
+			concat += Red + Bold
+		}
+		concat += string(value)
+
+		if index >= position + expressionLength - 1 {
+			concat += Reset
+			if occurrenceIndex < len(positions) - 1 {
+				occurrenceIndex++
+				position = positions[occurrenceIndex]
+			}
+		}
+	}
+	fmt.Println(concat)
+}
+
+func readFileAndHighlight(file io.Reader, expression string) {
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, expression) {
+			highlightExpression(line, expression)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Println("Error reading the file:", err)
+	}
+}
+
 func main() {
 	args := os.Args
 
@@ -31,51 +121,59 @@ func main() {
 		return
 	}
 
-	expression := args[1]
-	expressionLength := len(expression)
-	filePath := args[2]
-	file, err := os.Open(filePath)
+	var expression string
+	var path string
+	var option string
 
+	if len(args) == 3 {
+		expression = args[1]
+		path = args[2]
+		file, err := os.Open(path)
+
+		if err != nil {
+			fmt.Println("Error opening file:", err)
+			return
+		}
+
+		defer file.Close()
+	}
+
+	if len(args) == 4 {
+		option = args[1]
+		expression = args[2]
+		path = args[3]
+		file, err := os.Open(path)
+
+		if err != nil {
+			fmt.Println("Error opening file:", err)
+			return
+		}
+		fmt.Println(option)
+
+		defer file.Close()
+	}
+
+	info, err := os.Stat(path)
 	if err != nil {
-		fmt.Println("Error opening file:", err)
+		fmt.Println("Error:", err)
 		return
 	}
-	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
+	// Check if the path points to a file
+	if info.Mode().IsRegular() {
+		file, err := os.Open(path)
+		readFileAndHighlight(file, expression)
 
-	red := "\033[31m"
-	bold := "\033[1m"
-	reset := "\033[0m"
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.Contains(line, expression) {
-			concat := ""
-			occurrenceIndex := 0
-			positions := findAllOccurrences(line, expression)
-
-			position := positions[occurrenceIndex]
-
-			for index, value := range line {
-				if position == index {
-					concat += red + bold
-				}
-				concat += string(value)
-
-				if index >= position + expressionLength - 1 {
-					concat += reset
-					if occurrenceIndex < len(positions) - 1 {
-						occurrenceIndex++
-						position = positions[occurrenceIndex]
-					}
-				}
-			}
-			fmt.Println(concat)
+		if err != nil {
+			fmt.Println("Error opening file:", err)
+			return
 		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		fmt.Println("Error reading the file:", err)
+		defer file.Close()
+	} else if info.Mode().IsDir() {
+		fmt.Println("Path is a directory.")
+		traverse(path, expression)
+		return
+	} else {
+		fmt.Println("Path is neither a file nor a directory.")
 	}
 }
