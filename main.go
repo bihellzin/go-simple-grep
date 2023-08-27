@@ -13,6 +13,8 @@ const (
 	Red = "\033[31m"
 	Bold = "\033[1m"
 	Reset = "\033[0m"
+	Magenta = "\033[35m"
+	Green = "\033[32m"
 )
 
 func findAllOccurrences(mainString, substring string) []int {
@@ -61,19 +63,18 @@ func traverse(path, expression string) {
 				return
 			}
 			file, err := os.Open(absolutePath)
-			readFileAndHighlight(file, expression)
+			readFileAndHighlight(file, expression, absolutePath)
 
 			if err != nil {
 				fmt.Println("Error opening file:", err)
 				return
 			}
-			fmt.Println(file.Name())
 			defer file.Close()
 		}
 	}
 }
 
-func highlightExpression(line, expression string) {
+func highlightExpression(line, expression string, filePath ...string) {
 	concat := ""
 	expressionLength := len(expression)
 	occurrenceIndex := 0
@@ -95,16 +96,24 @@ func highlightExpression(line, expression string) {
 			}
 		}
 	}
+	if (len(filePath) > 0) {
+		fmt.Printf("%s%s%s%s:%s%s\n", Magenta, filePath[0], Reset, Green, Reset, concat)
+		return
+	}
 	fmt.Println(concat)
 }
 
-func readFileAndHighlight(file io.Reader, expression string) {
+func readFileAndHighlight(file io.Reader, expression string, filePath ...string) {
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.Contains(line, expression) {
-			highlightExpression(line, expression)
+			if len(filePath) > 0 {
+				highlightExpression(line, expression, filePath[0])
+			} else {
+				highlightExpression(line, expression)
+			}
 		}
 	}
 
@@ -148,7 +157,6 @@ func main() {
 			fmt.Println("Error opening file:", err)
 			return
 		}
-		fmt.Println(option)
 
 		defer file.Close()
 	}
@@ -169,8 +177,7 @@ func main() {
 			return
 		}
 		defer file.Close()
-	} else if info.Mode().IsDir() {
-		fmt.Println("Path is a directory.")
+	} else if info.Mode().IsDir() && strings.Contains(option, "r") {
 		traverse(path, expression)
 		return
 	} else {
